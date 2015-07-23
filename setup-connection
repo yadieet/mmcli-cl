@@ -1,0 +1,95 @@
+#!/bin/bash
+
+. mmcli_cl_functions
+
+## setup connection
+## -- for my Sierra Netgear AirCard 320U Modem DirectIP-manual connection
+##
+## (using mmcli 1.6.2)
+## <yadieet@gmail.com>
+
+datetime
+
+echo ">> Waiting for modem.."
+echo -n "please wait"
+while true
+do
+	echo -n "."
+	! isModemNotExists && break
+	sleep 1
+done
+echo
+
+im=`mmcli -L |grep -m 1 "AirCard 320U" |cut -d/ -f6 |awk '{print $1}'`
+
+echo ">> Resetting.."
+bearer -x
+route del default
+ifconfig wmip0 down
+echo -n > /etc/resolv.conf
+echo -n > /etc/resolv.dnsmasq.conf
+echo
+
+echo ">> Enabling modem.."
+mmcli -m $im --command=AT+CFUN=1
+mmcli -m $im -e
+mmcli -m $im --command=AT\!SCPROFDEL
+mmcli -m $im --location-disable-3gpp
+
+mmcli -m $im --set-allowed-modes='any'
+#mmcli -m $im --set-allowed-modes='4g'
+#mmcli -m $im --set-allowed-modes='3g'
+
+	#echo ">> Registering to home network.."
+	#mmcli -m $im --3gpp-register-home
+	#sleep 5
+
+isNetworkFailed && exit
+
+
+echo ">> Creating bearer.."
+a=`mmcli -m $im --list-bearers |grep -m 1 "No bearer" |wc -l`
+	#[[ $a == 1 ]] && mmcli -m $im --create-bearer="apn=3data,number=*99#,user=3data,password=3data,allow-roaming=1,ip-type=ipv4,allowed-auth=eap|pap|chap" || echo "Bearer already exist."
+[[ $a == 1 ]] && mmcli -m $im --create-bearer="apn=indosatgprs,number=*99#,user=indosat,password=indosat,allow-roaming=1,ip-type=ipv4,allowed-auth=eap|pap|chap" || echo "Bearer already exist."
+
+echo ">> Connecting.."
+try=0
+sleep 3
+! bearer -c && exit
+
+while true
+do
+	sleep 1
+	check
+	if [[ $result == 'yes' ]]; then
+		echo 'success.'
+		break
+	else
+		# patch when mmcli -m $im unplugged
+		isModemNotExists && exit
+
+		# give up (and then restart again)
+		[[ $try == 4 ]] && exit
+
+		((try++))
+		echo "failed. Trying again.. ($try)"
+
+		echo ">> Connecting.."
+		sleep 7
+		! bearer -c && exit
+	fi	
+done
+
+echo ">> Setup wmip interface and resolv files.."
+setIPandNSS
+
+	#rfkill unblock all
+	#sleep 2
+	#ifconfig wifi0 192.168.1.254/24 up
+
+echo ">> Restarting dnsmasq service.."
+systemctl restart dnsmasq
+
+echo ">> Restarting squid service.."
+systemctl restart squid
+

@@ -1,0 +1,16 @@
+# File: /usr/lib/systemd/system/ModemManager.service
+
+[Unit]
+Description=Modem Manager
+After=syslog.target
+
+[Service]
+Type=dbus
+BusName=org.freedesktop.ModemManager1
+ExecStart=/usr/bin/ModemManager --debug
+StandardError=null
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target
+Alias=dbus-org.freedesktop.ModemManager1.service

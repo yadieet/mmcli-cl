@@ -1,0 +1,105 @@
+#!/bin/bash
+
+## mmcli-cl functions 
+## -- for my Sierra Netgear AirCard 320U Modem DirectIP-manual connection
+##
+## (using mmcli 1.6.2)
+## <yadieet@gmail.com>
+
+function datetime()
+{
+	date +"%A, %-d %B %Y - %T %Z"
+}
+
+function isModemNotExists()
+{
+		local modm=`mmcli -L |grep -m 1 "AirCard 320U"`
+		[[ -z $modm ]] && return 0
+		return 1
+}
+
+function bearer()
+{
+		local ib=`mmcli -m $im --list-bearers |grep -m 1 "Bearer" |cut -d/ -f6`
+		[[ -z $ib ]] && echo "No any bearer." && return 1
+
+		mmcli -m $im -b $ib $@
+		return 0
+}
+
+function check()
+{
+		result=`bearer |sed -n 3p |awk {'print $4'} |cut -d\' -f2`
+}
+
+function setIPandNSS()
+{
+			#!SCNETDNS?
+			#!SCPADDR=<pid>
+
+		local res=`mmcli -m $im --command=AT+CGCONTRDP`
+		local ip=`echo $res |cut -d, -f4`
+		local ns1=`echo $res |cut -d, -f6`
+		local ns2=`echo $res |cut -d, -f7`
+
+		ifconfig wmip0 $ip up
+		route add default gw $ip
+		echo "nameserver $ns1" > /etc/resolv.conf
+		echo "nameserver $ns2" >> /etc/resolv.conf
+
+			## dnsmasq with ISP DNSs and Google DNSs
+			#cp -a /etc/resolv.conf /etc/resolv.dnsmasq.conf
+			#sed -i '1i\'"nameserver 8.8.8.8\nnameserver 8.8.4.4" /etc/resolv.dnsmasq.conf
+			#sed -i '1i\'"nameserver 127.0.0.1" /etc/resolv.conf
+
+		## dnsmasq with Google DNSs only
+		echo "nameserver 127.0.0.1" > /etc/resolv.conf
+		echo "nameserver 8.8.8.8" > /etc/resolv.dnsmasq.conf
+		echo "nameserver 8.8.4.4" >> /etc/resolv.dnsmasq.conf
+
+		echo $ip
+		echo $ns1
+		echo $ns2
+}
+
+function isNetworkFailed()
+{
+		local state=`mmcli -m $im | grep -m 1 state | awk {'print $3'} | cut -d\' -f2`
+		[[ $state == 'registered' ]] && return 1
+		return 0
+}
+
+function disconnectx()
+{
+		echo "Disconnecting.."
+		local scpid=`ps ax |grep "[s]etup-connection" |awk '{print $1}'`
+			#echo scpid=$scpid
+		[[ ! -z $scpid ]] && kill -s 15 $scpid && echo Cancelled.
+		killall -q ping
+		echo -n > /tmp/NOT-CONNECTED
+		bearer -x
+		mmcli -m $im --simple-disconnect
+		route del default
+		echo -n > /etc/resolv.conf
+		echo -n > /etc/resolv.dnsmasq.conf
+		mmcli -m $im -d
+		mmcli -m $im --command=AT+CFUN=0
+		sleep 2
+		systemctl stop squid
+		mmcli -m $im -r
+		systemctl restart ModemManager
+		datetime
+		btime=`date +%s`
+		java -cp "/boot/scripts/java/Duration" yadieet.DurationX $((btime-atime))
+		exit
+}
+
+function connectx()
+{
+		setup-connection &
+			   #scpid=$!
+		wait $!
+		scpid=
+		im=`mmcli -L |grep -m 1 "AirCard 320U" |cut -d/ -f6 |awk '{print $1}'`
+}
+

@@ -1,0 +1,15 @@
+#!/bin/bash
+
+## disconnect connected connection
+## -- for my Sierra Netgear AirCard 320U Modem DirectIP-manual connection
+##
+## (using mmcli 1.6.2)
+## <yadieet@gmail.com>
+
+. mmcli_cl_functions
+
+isModemNotExists && echo "No any modem !" && exit
+im=`mmcli -L |grep -m 1 "AirCard 320U" |cut -d/ -f6 |awk '{print $1}'`
+bearer -x
+mmcli -m $im --simple-disconnect
+

@@ -1,0 +1,41 @@
+#!/bin/bash
+
+## disconnect
+## -- for my Sierra Netgear AirCard 320U Modem DirectIP-manual connection
+##
+## (using mmcli 1.6.2)
+## <yadieet@gmail.com>
+
+. mmcli_cl_functions
+
+isModemNotExists && echo "No any modem !" && exit
+
+im=`mmcli -L |grep -m 1 "AirCard 320U" |cut -d/ -f6 |awk '{print $1}'`
+pid=`ps ax |grep "[s]udo /boot/scripts/connect-loop" |awk '{print $1}'`
+
+if [[ ! -z $pid ]]; then
+	kill -s 2 $pid
+	echo "Disconnecting.."
+	exit
+fi
+
+echo "Process not exists."
+echo ">> Trying basic method.."
+scpid=`ps ax |grep "[s]etup-connection" |awk '{print $1}'`
+[[ ! -z $scpid ]] && kill -s 15 $scpid
+killall -q ping
+bearer -x
+mmcli -m $im --simple-disconnect
+sleep 2
+mmcli -m $im -d
+	#mmcli -m $im --command=AT+CFUN=0
+sleep 2
+route del default
+echo -n > /etc/resolv.conf
+echo -n > /etc/resolv.dnsmasq.conf
+mmcli -m $im --command=AT+CFUN=0
+sleep 2
+systemctl stop squid
+mmcli -m $im -r
+systemctl restart ModemManager
+

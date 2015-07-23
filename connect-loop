@@ -1,0 +1,50 @@
+#!/bin/bash
+
+## connect and autoreconnect 
+## -- for my Sierra Netgear AirCard 320U Modem DirectIP-manual connection
+##
+## (using mmcli 1.6.2)
+## <yadieet@gmail.com>
+
+cd /tmp
+cp /boot/scripts/sites.list .
+
+. mmcli_cl_functions
+
+trap 'disconnectx' SIGINT SIGQUIT SIGABRT SIGKILL SIGTERM
+
+	#rfkill unblock all
+	#sleep 2
+	#ifconfig wifi0 192.168.1.254/24 up
+
+systemctl restart ModemManager
+atime=`date +%s`
+connectx
+sleep 3
+
+while true
+do
+	check
+	if [[ ! $result == 'yes' ]]; then
+		echo "not connected."
+		echo -n > /tmp/NOT-CONNECTED
+		connectx
+		sleep 5
+	fi
+
+	echo -n "Testing.. "
+	testping=`ping -4 -s 1 -c 6 -i 4 -W 4 -w 20 $(shuf sites.list | head -1) |grep "9 bytes" |wc -l`
+
+	if [[ $testping -gt 0 ]]; then
+		echo "connected."
+		[[ -e /tmp/NOT-CONNECTED ]] && rm /tmp/NOT-CONNECTED
+		sleep 40 &
+		wait $!
+	else
+		echo "not connected."
+		echo -n > /tmp/NOT-CONNECTED
+		bearer -x
+		sleep 1
+	fi
+done
+
