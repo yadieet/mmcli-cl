@@ -44,8 +44,9 @@ mmcli -m $im --set-allowed-modes='any'
 	#mmcli -m $im --3gpp-register-home
 	#sleep 5
 
-isNetworkFailed && exit
+	#isNetworkFailed && exit
 
+sleep 2
 
 echo ">> Creating bearer.."
 a=`mmcli -m $im --list-bearers |grep -m 1 "No bearer" |wc -l`
@@ -65,7 +66,7 @@ do
 		echo 'success.'
 		break
 	else
-		# patch when mmcli -m $im unplugged
+		# patch when modem unplugged
 		isModemNotExists && exit
 
 		# give up (and then restart again)
@@ -79,6 +80,8 @@ do
 		! bearer -c && exit
 	fi	
 done
+
+sleep 2
 
 echo ">> Setup wmip interface and resolv files.."
 setIPandNSS
