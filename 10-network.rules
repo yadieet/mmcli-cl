@@ -1,3 +1,0 @@
-# File: /etc/udev/rules.d/10-network.rules
-
-KERNEL=="wwan0", SUBSYSTEM=="net", ACTION=="add", NAME="wmip0"

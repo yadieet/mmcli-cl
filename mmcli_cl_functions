@@ -42,7 +42,7 @@ function setIPandNSS()
 		local ns1=`echo $res |cut -d, -f6`
 		local ns2=`echo $res |cut -d, -f7`
 
-		ifconfig wmip0 $ip up
+		ifconfig wwan0 $ip up
 		route add default gw $ip
 		echo "nameserver $ns1" > /etc/resolv.conf
 		echo "nameserver $ns2" >> /etc/resolv.conf
